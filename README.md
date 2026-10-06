@@ -142,4 +142,4 @@ O diagrama completo de classes e arquitetura do sistema encontra-se modelado em 
 
 | Nome | Matrícula | GitHub |
 |---|---|---|
-| Jean Gustavo | 2026001 | @JeanGustavo |
+| Jean Gustavo | 20210152676 | @jeangsv |
