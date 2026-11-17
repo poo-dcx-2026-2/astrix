@@ -15,10 +15,16 @@ import br.ufpb.dcx.poo.biblioteca.contrato.excecoes.PersistenciaException;
  */
 public class BibliotecaInicial implements Biblioteca {
 
+
     private final AcervoEmMemoria acervo = new AcervoEmMemoria();
+
     private final UsuariosEmMemoria usuarios = new UsuariosEmMemoria();
-    private final EmprestimosNaoImplementados emprestimos = new EmprestimosNaoImplementados();
-    private final RelatoriosNaoImplementados relatorios = new RelatoriosNaoImplementados();
+
+    private final EmprestimosNaoImplementados emprestimos =
+            new EmprestimosNaoImplementados(acervo, usuarios);
+
+    private final RelatoriosNaoImplementados relatorios =
+            new RelatoriosNaoImplementados();
 
     @Override
     public AcervoService acervo() { return acervo; }

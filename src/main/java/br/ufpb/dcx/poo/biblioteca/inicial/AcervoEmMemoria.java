@@ -185,7 +185,6 @@ public class AcervoEmMemoria implements AcervoService {
         return Collections.unmodifiableList(resultado);
     }
 
-
     @Override
     public void baixarExemplar(String tombo)
             throws RecursoNaoEncontradoException, OperacaoNaoPermitidaException {
@@ -231,6 +230,25 @@ public class AcervoEmMemoria implements AcervoService {
                     "O campo " + campo + " é obrigatório.");
         }
     }
+
+    Exemplar obterExemplar(String tombo)
+            throws RecursoNaoEncontradoException {
+
+        if (tombo == null || tombo.isBlank()) {
+            throw new RecursoNaoEncontradoException(
+                    "Tombo do exemplar não pode ser vazio.");
+        }
+
+        Exemplar exemplar = exemplaresPorTombo.get(tombo.trim());
+
+        if (exemplar == null) {
+            throw new RecursoNaoEncontradoException(
+                    "Exemplar não encontrado: " + tombo);
+        }
+
+        return exemplar;
+    }
+
 
     List<Item> itens() {
         return Collections.unmodifiableList(

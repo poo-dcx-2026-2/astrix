@@ -62,16 +62,52 @@ public class UsuariosEmMemoria implements UsuarioService {
         return Collections.unmodifiableList(resultado);
     }
 
+
     @Override
     public void desativarUsuario(String matricula)
             throws RecursoNaoEncontradoException, OperacaoNaoPermitidaException {
-        throw new UnsupportedOperationException("Entrega 2: implementar desativarUsuario");
+
+        if (matricula == null || matricula.isBlank()) {
+            throw new RecursoNaoEncontradoException(
+                    "Matrícula não pode ser nula ou vazia.");
+        }
+
+        Usuario usuario = usuariosPorMatricula.get(matricula.trim());
+
+        if (usuario == null) {
+            throw new RecursoNaoEncontradoException(
+                    "Usuário não encontrado: " + matricula);
+        }
+
+        if (usuario.getEmprestimosAtivos() > 0) {
+            throw new OperacaoNaoPermitidaException(
+                    "Não é possível desativar um usuário com empréstimos ativos.");
+        }
+
+        usuario.setAtivo(false);
     }
 
+
+
     @Override
-    public void reativarUsuario(String matricula) throws RecursoNaoEncontradoException {
-        throw new UnsupportedOperationException("Entrega 2: implementar reativarUsuario");
+    public void reativarUsuario(String matricula)
+            throws RecursoNaoEncontradoException {
+
+        if (matricula == null || matricula.isBlank()) {
+            throw new RecursoNaoEncontradoException(
+                    "Matrícula não pode ser nula ou vazia.");
+        }
+
+        Usuario usuario = usuariosPorMatricula.get(matricula.trim());
+
+        if (usuario == null) {
+            throw new RecursoNaoEncontradoException(
+                    "Usuário não encontrado: " + matricula);
+        }
+
+        usuario.setAtivo(true);
     }
+
 
     private UsuarioView paraView(Usuario usuario) {
         return new UsuarioView(
@@ -80,4 +116,22 @@ public class UsuariosEmMemoria implements UsuarioService {
                 usuario.isAtivo(),
                 usuario.getEmprestimosAtivos());
     }
-}
+
+    Usuario obterUsuario(String matricula)
+            throws RecursoNaoEncontradoException {
+
+        if (matricula == null || matricula.isBlank()) {
+            throw new RecursoNaoEncontradoException(
+                    "Matrícula não pode ser nula ou vazia.");
+        }
+
+        Usuario usuario = usuariosPorMatricula.get(matricula.trim());
+
+        if (usuario == null) {
+            throw new RecursoNaoEncontradoException(
+                    "Usuário não encontrado: " + matricula);
+        }
+
+        return usuario;
+    }
+    }

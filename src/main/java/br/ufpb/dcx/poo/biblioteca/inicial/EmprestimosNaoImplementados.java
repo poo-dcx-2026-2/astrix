@@ -22,6 +22,18 @@ import br.ufpb.dcx.poo.biblioteca.contrato.excecoes.UsuarioInativoException;
  */
 public class EmprestimosNaoImplementados implements EmprestimoService {
 
+    private final AcervoEmMemoria acervo;
+    private final UsuariosEmMemoria usuarios;
+
+    public EmprestimosNaoImplementados(
+            AcervoEmMemoria acervo,
+            UsuariosEmMemoria usuarios) {
+
+        this.acervo = acervo;
+        this.usuarios = usuarios;
+    }
+
+
     @Override
     public String emprestar(String tombo, String matricula, LocalDate data)
             throws RecursoNaoEncontradoException, ExemplarIndisponivelException,
