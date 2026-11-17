@@ -1,0 +1,19 @@
+target/
+*.class
+*.jar
+
+# IntelliJ IDEA
+.idea/
+**/.idea/
+*.iml
+**/*.iml
+out/
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# Dados gerados em execução
+dados/*.dat
+dados/biblioteca.*
+!dados/itens-exemplo.csv

@@ -1,0 +1,253 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam monochrome false
+skinparam shadowing false
+skinparam defaultFontName Arial
+hide empty members
+
+package "br.ufpb.dcx.poo.biblioteca.contrato" {
+    interface Biblioteca {
+        + acervo() : AcervoService
+        + usuarios() : UsuarioService
+        + emprestimos() : EmprestimoService
+        + relatorios() : RelatorioService
+        + salvar() : void
+        + carregar() : void
+    }
+
+    interface AcervoService {
+        + cadastrarItem(codigo: String, titulo: String, autoria: String, categoria: String, ano: int) : void
+        + buscarItem(codigo: String) : ItemView
+        + listarItens() : List<ItemView>
+        + buscarPorTitulo(trecho: String) : List<ItemView>
+        + buscarPorCategoria(categoria: String) : List<ItemView>
+        + adicionarExemplar(codigoDoItem: String, tombo: String) : void
+        + listarExemplares(codigoDoItem: String) : List<ExemplarView>
+        + baixarExemplar(tombo: String) : void
+    }
+
+    interface UsuarioService {
+        + cadastrarUsuario(matricula: String, nome: String) : void
+        + buscarUsuario(matricula: String) : UsuarioView
+        + listarUsuarios() : List<UsuarioView>
+        + desativarUsuario(matricula: String) : void
+        + reativarUsuario(matricula: String) : void
+    }
+
+    interface EmprestimoService {
+        + {static} LIMITE_DE_EMPRESTIMOS : int
+        + {static} PRAZO_EM_DIAS : int
+        + emprestar(tombo: String, matricula: String, data: LocalDate) : String
+        + devolver(tombo: String, data: LocalDate) : void
+        + listarEmprestimosDoUsuario(matricula: String) : List<EmprestimoView>
+        + listarAtrasados(data: LocalDate) : List<EmprestimoView>
+        + reservar(codigoDoItem: String, matricula: String, data: LocalDate) : String
+        + listarReservas(codigoDoItem: String) : List<ReservaView>
+        + cancelarReserva(idDaReserva: String) : void
+    }
+
+    enum StatusEmprestimo {
+        ATIVO
+        DEVOLVIDO
+        ATRASADO
+    }
+
+    enum StatusExemplar {
+        DISPONIVEL
+        EMPRESTADO
+        RESERVADO
+        INDISPONIVEL
+    }
+
+    class ItemView <<record>> {
+        + codigo : String
+        + titulo : String
+        + autoria : String
+        + categoria : String
+        + ano : int
+        + totalDeExemplares : int
+        + exemplaresDisponiveis : int
+    }
+
+    class ExemplarView <<record>> {
+        + tombo : String
+        + codigoDoItem : String
+        + status : StatusExemplar
+    }
+
+    class UsuarioView <<record>> {
+        + matricula : String
+        + nome : String
+        + ativo : boolean
+        + emprestimosAtivos : int
+    }
+
+    class EmprestimoView <<record>> {
+        + id : String
+        + tombo : String
+        + matricula : String
+        + dataDoEmprestimo : LocalDate
+        + dataPrevistaDeDevolucao : LocalDate
+        + dataDaDevolucao : LocalDate
+        + status : StatusEmprestimo
+    }
+
+    class ReservaView <<record>> {
+        + id : String
+        + codigoDoItem : String
+        + matricula : String
+        + dataDaReserva : LocalDate
+        + posicaoNaFila : int
+    }
+}
+
+package "br.ufpb.dcx.poo.biblioteca" {
+    class Fabrica {
+        + {static} novaBiblioteca() : Biblioteca
+    }
+}
+
+package "br.ufpb.dcx.poo.biblioteca.persistencia" {
+    class GerenciadorPersistencia {
+        + salvar(dados: DadosPersistencia) : void
+        + carregar() : DadosPersistencia
+    }
+
+    class DadosPersistencia <<record>> {
+        + itens : List<ItemDTO>
+        + exemplares : List<ExemplarDTO>
+        + usuarios : List<UsuarioDTO>
+        + emprestimos : List<EmprestimoDTO>
+        + reservas : List<ReservaDTO>
+        + proximoIdEmprestimo : long
+        + proximoIdReserva : long
+    }
+}
+
+package "br.ufpb.dcx.poo.biblioteca.inicial" {
+    class Item {
+        - codigo : String
+        - titulo : String
+        - autoria : String
+        - categoria : String
+        - ano : int
+        - exemplares : List<Exemplar>
+        + Item(codigo: String, titulo: String, autoria: String, categoria: String, ano: int)
+        + getCodigo() : String
+        + getTitulo() : String
+        + getAutoria() : String
+        + getCategoria() : String
+        + getAno() : int
+        + adicionarExemplar(exemplar: Exemplar) : void
+        + getExemplares() : List<Exemplar>
+        + getTotalDeExemplares() : int
+        + getExemplaresDisponiveis() : int
+    }
+
+    class Exemplar {
+        - tombo : String
+        - item : Item
+        - status : StatusExemplar
+        + Exemplar(tombo: String, item: Item)
+        + getTombo() : String
+        + getItem() : Item
+        + getStatus() : StatusExemplar
+        + setStatus(status: StatusExemplar) : void
+    }
+
+    class Usuario {
+        - matricula : String
+        - nome : String
+        - ativo : boolean
+        - emprestimosAtivos : int
+        + Usuario(matricula: String, nome: String)
+        + getMatricula() : String
+        + getNome() : String
+        + isAtivo() : boolean
+        + setAtivo(ativo: boolean) : void
+        + getEmprestimosAtivos() : int
+        + setEmprestimosAtivos(n: int) : void
+    }
+
+    class Emprestimo {
+        - id : String
+        - tombo : String
+        - matricula : String
+        - dataDoEmprestimo : LocalDate
+        - dataPrevistaDeDevolucao : LocalDate
+        - dataDaDevolucao : LocalDate
+        - status : StatusEmprestimo
+        - sequencia : long
+        + finalizar(data: LocalDate) : void
+        + isAtivo() : boolean
+        + toView() : EmprestimoView
+        + toViewAtrasado() : EmprestimoView
+    }
+
+    class Reserva {
+        - id : String
+        - codigoDoItem : String
+        - matricula : String
+        - dataDaReserva : LocalDate
+        - posicaoNaFila : int
+        - tomboExemplarSeparado : String
+        + setPosicaoNaFila(posicao: int) : void
+        + separarExemplar(tombo: String) : void
+        + liberarExemplarSeparado() : void
+        + temExemplarSeparado() : boolean
+        + toView() : ReservaView
+    }
+
+    class AcervoEmMemoria {
+        - itensPorCodigo : Map<String, Item>
+        - exemplaresPorTombo : Map<String, Exemplar>
+    }
+
+    class UsuariosEmMemoria {
+        - usuariosPorMatricula : Map<String, Usuario>
+    }
+
+    class EmprestimosEmMemoria {
+        - emprestimosPorId : Map<String, Emprestimo>
+        - emprestimoAtivoDoExemplar : Map<String, Emprestimo>
+        - reservasPorItem : Map<String, List<Reserva>>
+        - reservasPorId : Map<String, Reserva>
+    }
+
+    class BibliotecaInicial {
+        - acervo : AcervoEmMemoria
+        - usuarios : UsuariosEmMemoria
+        - emprestimos : EmprestimosEmMemoria
+        - persistencia : GerenciadorPersistencia
+    }
+}
+
+BibliotecaInicial ..|> Biblioteca
+AcervoEmMemoria ..|> AcervoService
+UsuariosEmMemoria ..|> UsuarioService
+EmprestimosEmMemoria ..|> EmprestimoService
+
+Fabrica ..> BibliotecaInicial : cria
+
+BibliotecaInicial *--> AcervoEmMemoria : acervo
+BibliotecaInicial *--> UsuariosEmMemoria : usuarios
+BibliotecaInicial *--> EmprestimosEmMemoria : emprestimos
+BibliotecaInicial *--> GerenciadorPersistencia : persistencia
+
+AcervoEmMemoria o--> "0..*" Item : itensPorCodigo
+AcervoEmMemoria o--> "0..*" Exemplar : exemplaresPorTombo
+UsuariosEmMemoria o--> "0..*" Usuario : usuariosPorMatricula
+
+EmprestimosEmMemoria o--> "0..*" Emprestimo : emprestimosPorId
+EmprestimosEmMemoria o--> "0..*" Reserva : reservasPorId
+EmprestimosEmMemoria --> AcervoEmMemoria : consulta
+EmprestimosEmMemoria --> UsuariosEmMemoria : consulta
+
+Item "1" *--> "0..*" Exemplar : exemplares
+Exemplar --> "1" Item : item
+Exemplar --> StatusExemplar : status
+
+Emprestimo --> StatusEmprestimo : status
+GerenciadorPersistencia ..> DadosPersistencia : grava/carrega
+
+@enduml
