@@ -140,3 +140,4 @@ O diagrama atualizado correspondente à arquitetura e ao código da Entrega 2 en
 |---|---|---|
 | Jean Gustavo | 20210152676 | @jeangsv |
 | Igor Leandro | 20240009705 | igorleandrok22 |
+| Fábio Adriano Queirolo Taves | 20250104440 | @fabiotaves-alt |
