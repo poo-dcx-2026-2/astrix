@@ -1,17 +1,20 @@
 # Sistema de Gestão de Acervo e Biblioteca
 
-Projeto desenvolvido para a disciplina de **Programação Orientada a Objetos** — DCX/CCAE/UFPB (Entrega 1).
+Projeto desenvolvido para a disciplina de **Programação Orientada a Objetos** — DCX/CCAE/UFPB.  
+**Entrega 2: Design e Persistência**.
 
 ---
 
 ## 1. Visão Geral do Domínio
 
-O sistema gerencia o acervo bibliográfico e os usuários de uma biblioteca universitária, permitindo o cadastramento e busca de obras (livros, periódicos e mídias), controle de exemplares físicos com tombos globais e gerenciamento de usuários.
+O sistema gerencia o acervo bibliográfico, os usuários, os empréstimos, devoluções e a fila de reservas de uma biblioteca universitária, com persistência completa em arquivo.
 
 As entidades centrais do domínio são:
-* **Item**: Representa a obra intelectual cadastrada no acervo (identificada por um código único, título, autoria, categoria e ano de publicação).
-* **Exemplar**: Representa a unidade física correspondente a um Item, identificada por um número de tombo único em todo o sistema e acompanhada de seu estado de disponibilidade (`DISPONIVEL`, `EMPRESTADO`, etc.).
-* **Usuario**: Representa o membro da comunidade acadêmica cadastrado para utilização dos serviços da biblioteca (identificado por matrícula e nome).
+* **Item**: Representa a obra intelectual cadastrada no acervo (código único, título, autoria, categoria e ano de publicação).
+* **Exemplar**: Representa a unidade física correspondente a um Item, identificada por tombo único global e estado (`DISPONIVEL`, `EMPRESTADO`, `RESERVADO`, `INDISPONIVEL`).
+* **Usuario**: Representa o membro da comunidade acadêmica (matrícula, nome, situação ativa e contagem de empréstimos ativos).
+* **Emprestimo**: Registro de empréstimo com identificador único, tombo, matrícula, data de empréstimo, data prevista (prazo de 14 dias), data de devolução e status (`ATIVO`, `DEVOLVIDO`, `ATRASADO`).
+* **Reserva**: Registro da fila de espera por ordem de chegada para itens que não possuem exemplares disponíveis, com posição na fila e controle de separação de exemplar após devolução.
 
 ---
 
@@ -20,14 +23,17 @@ As entidades centrais do domínio são:
 A estrutura de diretórios do projeto está organizada da seguinte forma:
 
 ```text
-dev-java/
+astrix-main/
 ├── .github/workflows/
 │   └── build.yml               # Pipeline de integração contínua (GitHub Actions com Maven e JDK 21)
 ├── dados/
-│   └── itens-exemplo.csv       # Arquivo de dados de exemplo para o acervo
+│   ├── itens-exemplo.csv       # Arquivo de dados de exemplo para o acervo (PRESERVADO, nunca sobrescrito)
+│   └── biblioteca.dat          # Arquivo binário de persistência gerado em tempo de execução (ignorado no git)
 ├── docs/
+│   ├── decisoes.md             # Registro completo das decisões de design, GRASP e arquitetura (Entrega 2)
 │   ├── modelo.puml             # Diagrama de classes UML do domínio e arquitetura em formato PlantUML
-│   └── modelo.png              # Imagem gerada do diagrama UML do sistema
+│   ├── modelo.png              # Imagem gerada do diagrama UML do sistema
+│   └── devolutiva-entrega-1.md # Feedback e correções da Entrega 1
 ├── src/
 │   ├── main/java/br/ufpb/dcx/poo/biblioteca/
 │   │   ├── Fabrica.java        # Ponto de entrada oficial para instanciação independente da Biblioteca
@@ -40,17 +46,26 @@ dev-java/
 │   │   │   ├── *View.java
 │   │   │   ├── Status*.java
 │   │   │   └── excecoes/
-│   │   └── inicial/            # Implementação do modelo de domínio e serviços em memória
-│   │       ├── Item.java       # Entidade de domínio Item com proteção de invariantes
-│   │       ├── Exemplar.java   # Entidade de domínio Exemplar
-│   │       ├── Usuario.java    # Entidade de domínio Usuario
-│   │       ├── AcervoEmMemoria.java      # Implementação do AcervoService em memória (Map/List)
-│   │       ├── UsuariosEmMemoria.java    # Implementação do UsuarioService em memória (Map)
-│   │       └── BibliotecaInicial.java    # Ponto centralizador dos serviços da Biblioteca
+│   │   ├── persistencia/       # Módulo isolado de persistência (domínio livre de E/S)
+│   │   │   ├── GerenciadorPersistencia.java  # Leitura e escrita atômica com try-with-resources
+│   │   │   └── DadosPersistencia.java        # DTO Snapshot serializável do estado completo
+│   │   └── inicial/            # Implementação do modelo de domínio e serviços
+│   │       ├── Item.java                 # Entidade Item com proteção de invariantes
+│   │       ├── Exemplar.java             # Entidade Exemplar com transição de status
+│   │       ├── Usuario.java              # Entidade Usuario
+│   │       ├── Emprestimo.java           # Entidade Emprestimo (Information Expert de datas e prazos)
+│   │       ├── Reserva.java              # Entidade Reserva com gestão de posições e separação
+│   │       ├── AcervoEmMemoria.java      # Implementação do AcervoService
+│   │       ├── UsuariosEmMemoria.java    # Implementação do UsuarioService
+│   │       ├── EmprestimosEmMemoria.java # Implementação do EmprestimoService (empréstimos e reservas)
+│   │       ├── RelatoriosNaoImplementados.java # Stub para Entrega 3
+│   │       └── BibliotecaInicial.java    # Ponto de entrada centralizador (Padrão Facade)
 │   └── test/java/br/ufpb/dcx/poo/biblioteca/
-│       ├── AcervoTest.java     # Suíte de testes do acervo (casos normais, inválidos, limites e encapsulamento)
-│       ├── UsuarioTest.java    # Suíte de testes de usuários
-│       └── FabricaTest.java    # Suíte de testes de isolamento e integridade da Fábrica
+│       ├── AcervoTest.java        # Suíte de testes do acervo (E1 + E2: categorias, baixa e correções)
+│       ├── UsuarioTest.java       # Suíte de testes de usuários (E1 + E2: desativação e reativação)
+│       ├── EmprestimoTest.java    # Suíte de testes de empréstimos, devoluções e ciclo de reservas
+│       ├── PersistenciaTest.java  # Suíte de persistência (ida e volta, @TempDir, ausente e corrompido)
+│       └── FabricaTest.java       # Suíte de testes de isolamento e integridade da Fábrica
 ├── pom.xml                     # Configuração do Maven (Java 21, JUnit 5 Surefire)
 ├── DECLARACAO-DE-USO-DE-IA.md  # Registro transparente do uso de ferramentas de IA
 └── README.md                   # Documentação completa do projeto
@@ -58,83 +73,64 @@ dev-java/
 
 ---
 
-## 3. Como Executar
+## 3. Onde Ficam os Dados (Persistência)
+
+* **Diretório padrão:** `dados/` na raiz de execução do projeto.
+* **Propriedade de sistema:** Caso a propriedade JVM `biblioteca.dados` esteja definida (`System.getProperty("biblioteca.dados")`), o sistema utilizará o caminho especificado por ela. É através dessa propriedade que os testes automatizados apontam a persistência para pastas temporárias seguras via `@TempDir`.
+* **Arquivo gravado:** `dados/biblioteca.dat` (serialização binária nativa).
+* **Preservação de arquivos do repositório:** O arquivo `dados/itens-exemplo.csv` **não é alterado ou sobrescrito**. O arquivo `biblioteca.dat` e arquivos de dados temporários estão devidamente ignorados no `.gitignore`.
+* **Robustez e Atomicidade:**
+  * Diretório ou arquivo ausente: inicializa o acervo como vazio sem lançar exceção.
+  * Arquivo corrompido (bytes inválidos ou integridade referencial rompida): lança `PersistenciaException` com a causa preservada e **não altera** o estado em memória.
+  * Todo recurso de entrada e saída é manipulado com `try-with-resources`.
+
+---
+
+## 4. Decisões de Design e Arquitetura
+
+O detalhamento das escolhas de modelagem e padrões GRASP/GoF encontra-se documentado em:
+👉 **[docs/decisoes.md](docs/decisoes.md)**
+
+Principais decisões abordadas:
+1. **Composição vs. Herança**: Composição estrita entre `Item` e `Exemplar`.
+2. **Interfaces e Polimorfismo**: Utilizadas apenas nas fronteiras de serviço onde há substituição real.
+3. **Padrões GRASP (Aula 12)**:
+   * *Information Expert* na entidade `Emprestimo` (cálculo de prazos e validação temporal).
+   * *Controller* e *Information Expert* em `EmprestimosEmMemoria` e `Reserva` (fila FIFO, transições de status e reordenação).
+4. **Padrão Facade (Aula 13)**: `BibliotecaInicial` como porta única de entrada que protege o domínio de acessos externos diretos.
+5. **Reservas de Usuário Desativado**: Ao desativar um usuário, suas reservas ativas são canceladas e exemplares reservados são devolvidos ao acervo ou transferidos para o próximo da fila.
+6. **Persistência Desacoplada**: Pacote `persistencia` isolado, garantindo que o domínio não execute operações de E/S.
+
+---
+
+## 5. Como Executar
 
 O projeto utiliza **Java 21** e **Maven**.
 
-### Executar a suíte de testes:
+### Executar a suíte completa de testes (89 testes):
 ```bash
 mvn test
 ```
 
-### Compilar, verificar regras e empacotar:
+### Compilar, verificar e empacotar:
 ```bash
 mvn verify
 ```
 
 ---
 
-## 4. Justificativa das Escolhas de Coleções
-
-Para garantir clareza, integridade de dados e desempenho adequado a cada requisito do sistema, foram utilizadas as seguintes estruturas de dados:
-
-1. **`Map<String, Item>` (`LinkedHashMap` em `AcervoEmMemoria`)**:
-   * *Onde:* Mapeamento interno dos itens cadastrados indexados pelo `codigo`.
-   * *Por que:* O código do item é seu identificador único. O `Map` garante que a verificação de duplicidade (`containsKey`) e a recuperação do item (`get`) ocorram em tempo constante $O(1)$, evitando varreduras lineares desnecessárias e impedindo códigos repetidos. A variante `LinkedHashMap` preserva a ordem de inserção original.
-
-2. **`Map<String, Exemplar>` (`HashMap` em `AcervoEmMemoria`)**:
-   * *Onde:* Registro global de todos os exemplares físicos da biblioteca indexados pelo `tombo`.
-   * *Por que:* A regra do domínio exige que o tombo seja único globalmente em todo o acervo (entre obras iguais ou distintas). Mapear diretamente os tombos em uma tabela hash permite validar a unicidade global em $O(1)$ antes de associar o exemplar ao seu respectivo item.
-
-3. **`List<Exemplar>` (`ArrayList` em `Item`)**:
-   * *Onde:* Lista de exemplares físicos pertencentes a um item específico.
-   * *Por que:* Uma obra pode possuir múltiplos exemplares ordenados cronologicamente por aquisição/tombamento. A lista indexada permite iteração direta para contagem de totais e disponíveis.
-
-4. **`Map<String, Usuario>` (`LinkedHashMap` em `UsuariosEmMemoria`)**:
-   * *Onde:* Armazenamento dos usuários cadastrados indexados pela `matricula`.
-   * *Por que:* A matrícula é a chave primária natural do usuário. O uso de `Map` substituiu as listas paralelas anteriores, agrupando os dados no objeto de domínio `Usuario` e permitindo buscas e validações em $O(1)$.
-
-5. **Encapsulamento com Coleções Imutáveis (`Collections.unmodifiableList` / `List.copyOf`)**:
-   * *Onde:* Em todos os métodos que retornam listas (`listarItens()`, `buscarPorTitulo()`, `listarExemplares()`, `listarUsuarios()`, `Item.getExemplares()`).
-   * *Por que:* Impede que consumidores externos consigam invocar métodos mutáveis como `.clear()` ou `.remove()` na referência recebida, protegendo o estado interno da biblioteca contra corrupção.
-
----
-
-## 5. Defeito Oculto Identificado e Corrigido
-
-### O Defeito
-No código original fornecido em `AcervoEmMemoria.java`, a busca interna de itens no método `localizar(String codigo)` realizava a comparação utilizando o operador de igualdade de referência:
-```java
-// Código original com defeito:
-if (item.getCodigo() == codigo) {
-    return item;
-}
-```
-Como em Java o operador `==` compara a identidade de memória dos objetos `String` e não o seu conteúdo, qualquer chamada a `buscarItem` ou `cadastrarItem` que recebesse uma `String` instanciada dinamicamente (como `new String("L1")` ou textos lidos de arquivos/entradas de usuário) falhava ao localizar o item, lançando indevidamente `RecursoNaoEncontradoException` ou permitindo itens duplicados.
-
-### Processo de Correção (TDD / Regressão)
-1. **Teste de Regressão (Commit 1):** Foi criado o teste `buscarItemComNovaInstanciaDeString` em `AcervoTest.java`, passando `new String("L1")`. Inicialmente o teste falhou comprovando a existência do defeito (`commit: test: adiciona teste de regressão para defeito no acervo`).
-2. **Correção Pontual (Commit 2):** O código foi corrigido para utilizar `.equals()` (`commit: fix: corrige defeito identificado no acervo`).
-3. **Refatoração com Map:** Posteriormente, a estrutura foi aprimorada com a utilização de `Map<String, Item>`, garantindo busca segura e de alta performance.
-
----
-
 ## 6. Extensão Autoral da Equipe
 
 ### Regra de Negócio: Validação Temporal de Publicação e Unicidade Estrita de Tombamento
-* **Motivação:** Em um sistema bibliotecário acadêmico, o catálogo deve garantir a plausibilidade histórica das obras e a integridade do patrimônio físico.
-* **Comportamento da Regra:**
-  1. *Validação Temporal de Publicação:* Todo item cadastrado deve possuir ano de publicação plausível, definido no intervalo entre o marco histórico da imprensa moderna (ano **1450**) e o ano corrente acrescido de um ano de margem editorial. Obras com anos anteriores a 1450 (como manuscritos antigos que exigem tombamento especial de arquivo) ou datas futuras irreais disparam `DadosInvalidosException`.
-  2. *Proteção de Invariantes das Entidades:* As entidades de domínio (`Item`, `Exemplar`, `Usuario`) protegem ativamente suas invariantes já em seus construtores, rejeitando valores nulos, vazios ou em branco.
-  3. *Atomicidade e Unicidade Global de Tombo:* A tentativa de cadastrar um tombo duplicado em qualquer obra falha sem corromper ou alterar parcialmente o estado do item ou do acervo.
-* **Onde foi implementada:** Em `Item.java` (constante `ANO_MINIMO_PUBLICACAO`, validação no construtor e setters), `Exemplar.java`, `Usuario.java` e `AcervoEmMemoria.java`.
-* **Testes:** Coberta pelos testes unitários `anoDePublicacaoInvalidoPassado()`, `anoDePublicacaoInvalidoFuturo()`, `tomboDuplicadoEntreItensDiferentes()`, `tomboDuplicadoNoMesmoItem()`, `encapsulamentoDasListasRetornadas()` e `atomicidadeAdicionarExemplar()` em `AcervoTest.java`.
+* **Motivação e Justificativa das Restrições de Ano:** Em uma biblioteca acadêmica informatizada, o catálogo exige consistência cronológica para garantir a plausibilidade das obras catalogadas. O marco inicial adotado é o ano de **1450**, que assinala a invenção da imprensa de tipos móveis por Johannes Gutenberg e o nascimento da publicação bibliográfica em escala moderna. Manuscritos anteriores a essa data pertencem à categoria de acervos históricos/museológicos especiais, com tombamento diferenciado. No limite superior, admite-se até o ano corrente acrescido de um ano ($anoAtual + 1$), permitindo catalogação de pré-lançamentos editoriais com ISBN antecipado, ao mesmo tempo em que rejeita datas futuras fictícias decorrentes de erros de digitação.
+* **Onde está no código:** Entidade `Item.java` (constante `ANO_MINIMO_PUBLICACAO = 1450` e validação no construtor), com testes em `AcervoTest.java` (`anoDePublicacaoInvalidoPassado()` e `anoDePublicacaoInvalidoFuturo()`).
+* **Proteção de Invariantes:** As entidades de domínio protegem suas invariantes já em seus construtores, rejeitando valores nulos ou em branco com `DadosInvalidosException`. Setters desnecessários foram removidos para garantir imutabilidade dos dados cadastrais.
 
 ---
 
-## 7. Modelo UML
+## 7. Diagrama UML
 
-O diagrama completo de classes e arquitetura do sistema encontra-se modelado em [`docs/modelo.puml`](docs/modelo.puml) e renderizado na imagem [`docs/modelo.png`](docs/modelo.png).
+O diagrama atualizado correspondente à arquitetura e ao código da Entrega 2 encontra-se modelado em [`docs/modelo.puml`](docs/modelo.puml).
 
 ---
 
@@ -143,5 +139,4 @@ O diagrama completo de classes e arquitetura do sistema encontra-se modelado em 
 | Nome | Matrícula | GitHub |
 |---|---|---|
 | Jean Gustavo | 20210152676 | @jeangsv |
-| Igor Leandro| 20240009705| igorleandrok22 |
-
+| Igor Leandro | 20240009705 | igorleandrok22 |

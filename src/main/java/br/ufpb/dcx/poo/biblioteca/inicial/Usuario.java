@@ -1,5 +1,6 @@
 package br.ufpb.dcx.poo.biblioteca.inicial;
 
+import java.io.Serializable;
 import java.util.Objects;
 import br.ufpb.dcx.poo.biblioteca.contrato.excecoes.DadosInvalidosException;
 
@@ -7,7 +8,9 @@ import br.ufpb.dcx.poo.biblioteca.contrato.excecoes.DadosInvalidosException;
  * Entidade de domínio representando um Usuário da biblioteca.
  * Protege suas invariantes no construtor.
  */
-public class Usuario {
+public class Usuario implements Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     private final String matricula;
     private String nome;
@@ -33,13 +36,6 @@ public class Usuario {
 
     public String getNome() {
         return nome;
-    }
-
-    public void setNome(String nome) {
-        if (nome == null || nome.isBlank()) {
-            throw new DadosInvalidosException("O nome é obrigatório.");
-        }
-        this.nome = nome;
     }
 
     public boolean isAtivo() {

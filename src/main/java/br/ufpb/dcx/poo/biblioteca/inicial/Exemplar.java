@@ -1,5 +1,6 @@
 package br.ufpb.dcx.poo.biblioteca.inicial;
 
+import java.io.Serializable;
 import java.util.Objects;
 import br.ufpb.dcx.poo.biblioteca.contrato.StatusExemplar;
 import br.ufpb.dcx.poo.biblioteca.contrato.excecoes.DadosInvalidosException;
@@ -8,7 +9,9 @@ import br.ufpb.dcx.poo.biblioteca.contrato.excecoes.DadosInvalidosException;
  * A cópia física de um item. O que se empresta é o exemplar, não o item.
  * Protege suas invariantes no construtor.
  */
-public class Exemplar {
+public class Exemplar implements Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     private final String tombo;
     private final Item item;

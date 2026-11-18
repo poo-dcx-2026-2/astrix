@@ -1,4 +1,3 @@
-
 package br.ufpb.dcx.poo.biblioteca.inicial;
 
 import java.util.ArrayList;
@@ -17,11 +16,17 @@ import br.ufpb.dcx.poo.biblioteca.contrato.excecoes.DadosInvalidosException;
 import br.ufpb.dcx.poo.biblioteca.contrato.excecoes.OperacaoNaoPermitidaException;
 import br.ufpb.dcx.poo.biblioteca.contrato.excecoes.RecursoDuplicadoException;
 import br.ufpb.dcx.poo.biblioteca.contrato.excecoes.RecursoNaoEncontradoException;
+import br.ufpb.dcx.poo.biblioteca.persistencia.DadosPersistencia;
 
 public class AcervoEmMemoria implements AcervoService {
 
     private final Map<String, Item> itensPorCodigo = new LinkedHashMap<>();
     private final Map<String, Exemplar> exemplaresPorTombo = new HashMap<>();
+    private EmprestimosEmMemoria emprestimos;
+
+    public void setEmprestimos(EmprestimosEmMemoria emprestimos) {
+        this.emprestimos = emprestimos;
+    }
 
     @Override
     public void cadastrarItem(String codigo, String titulo, String autoria,
@@ -49,7 +54,7 @@ public class AcervoEmMemoria implements AcervoService {
             throws RecursoNaoEncontradoException {
 
         if (codigo == null || codigo.isBlank()) {
-            throw new RecursoNaoEncontradoException(
+            throw new DadosInvalidosException(
                     "Código do item não pode ser nulo ou vazio.");
         }
 
@@ -114,7 +119,6 @@ public class AcervoEmMemoria implements AcervoService {
         List<ItemView> resultado = new ArrayList<>();
 
         for (Item item : itensPorCodigo.values()) {
-
             if (item.getCategoria().equalsIgnoreCase(categoria.trim())) {
                 resultado.add(paraView(item));
             }
@@ -161,7 +165,7 @@ public class AcervoEmMemoria implements AcervoService {
             throws RecursoNaoEncontradoException {
 
         if (codigoDoItem == null || codigoDoItem.isBlank()) {
-            throw new RecursoNaoEncontradoException(
+            throw new DadosInvalidosException(
                     "Código do item não pode ser nulo ou vazio.");
         }
 
@@ -182,6 +186,9 @@ public class AcervoEmMemoria implements AcervoService {
                             exemplar.getStatus()));
         }
 
+        // Ordenar por tombo (correção da Entrega 1)
+        resultado.sort(Comparator.comparing(ExemplarView::tombo));
+
         return Collections.unmodifiableList(resultado);
     }
 
@@ -190,7 +197,7 @@ public class AcervoEmMemoria implements AcervoService {
             throws RecursoNaoEncontradoException, OperacaoNaoPermitidaException {
 
         if (tombo == null || tombo.isBlank()) {
-            throw new RecursoNaoEncontradoException(
+            throw new DadosInvalidosException(
                     "O tombo do exemplar não pode ser nulo ou vazio.");
         }
 
@@ -206,11 +213,22 @@ public class AcervoEmMemoria implements AcervoService {
                     "Não é possível baixar um exemplar emprestado.");
         }
 
+        if (exemplar.getStatus() == StatusExemplar.INDISPONIVEL) {
+            throw new OperacaoNaoPermitidaException(
+                    "Exemplar já está indisponível.");
+        }
+
+        // Se o exemplar estava RESERVADO, a reserva volta a esperar
+        if (exemplar.getStatus() == StatusExemplar.RESERVADO) {
+            if (emprestimos != null) {
+                emprestimos.liberarExemplarSeparado(exemplar.getTombo());
+            }
+        }
+
         exemplar.setStatus(StatusExemplar.INDISPONIVEL);
     }
 
     private ItemView paraView(Item item) {
-
         return new ItemView(
                 item.getCodigo(),
                 item.getTitulo(),
@@ -221,21 +239,31 @@ public class AcervoEmMemoria implements AcervoService {
                 item.getExemplaresDisponiveis());
     }
 
-
-
     private static void exigirTextoPreenchido(String valor, String campo) {
-
         if (valor == null || valor.isBlank()) {
             throw new DadosInvalidosException(
                     "O campo " + campo + " é obrigatório.");
         }
     }
 
+    Item obterItem(String codigo) throws RecursoNaoEncontradoException {
+        if (codigo == null || codigo.isBlank()) {
+            throw new DadosInvalidosException(
+                    "Código do item não pode ser vazio.");
+        }
+        Item item = itensPorCodigo.get(codigo.trim());
+        if (item == null) {
+            throw new RecursoNaoEncontradoException(
+                    "Item não encontrado: " + codigo);
+        }
+        return item;
+    }
+
     Exemplar obterExemplar(String tombo)
             throws RecursoNaoEncontradoException {
 
         if (tombo == null || tombo.isBlank()) {
-            throw new RecursoNaoEncontradoException(
+            throw new DadosInvalidosException(
                     "Tombo do exemplar não pode ser vazio.");
         }
 
@@ -249,9 +277,49 @@ public class AcervoEmMemoria implements AcervoService {
         return exemplar;
     }
 
-
     List<Item> itens() {
         return Collections.unmodifiableList(
                 new ArrayList<>(itensPorCodigo.values()));
+    }
+
+    List<DadosPersistencia.ItemDTO> exportarItens() {
+        List<DadosPersistencia.ItemDTO> lista = new ArrayList<>();
+        for (Item item : itensPorCodigo.values()) {
+            lista.add(new DadosPersistencia.ItemDTO(
+                    item.getCodigo(), item.getTitulo(), item.getAutoria(),
+                    item.getCategoria(), item.getAno()
+            ));
+        }
+        return lista;
+    }
+
+    List<DadosPersistencia.ExemplarDTO> exportarExemplares() {
+        List<DadosPersistencia.ExemplarDTO> lista = new ArrayList<>();
+        for (Exemplar ex : exemplaresPorTombo.values()) {
+            lista.add(new DadosPersistencia.ExemplarDTO(
+                    ex.getTombo(), ex.getItem().getCodigo(), ex.getStatus()
+            ));
+        }
+        return lista;
+    }
+
+    void importar(List<DadosPersistencia.ItemDTO> itens, List<DadosPersistencia.ExemplarDTO> exemplares) {
+        itensPorCodigo.clear();
+        exemplaresPorTombo.clear();
+
+        for (DadosPersistencia.ItemDTO dto : itens) {
+            Item item = new Item(dto.codigo(), dto.titulo(), dto.autoria(), dto.categoria(), dto.ano());
+            itensPorCodigo.put(item.getCodigo(), item);
+        }
+
+        for (DadosPersistencia.ExemplarDTO dto : exemplares) {
+            Item item = itensPorCodigo.get(dto.codigoDoItem());
+            if (item != null) {
+                Exemplar ex = new Exemplar(dto.tombo(), item);
+                ex.setStatus(dto.status());
+                exemplaresPorTombo.put(ex.getTombo(), ex);
+                item.adicionarExemplar(ex);
+            }
+        }
     }
 }
