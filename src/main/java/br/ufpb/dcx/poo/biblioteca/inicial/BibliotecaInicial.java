@@ -6,25 +6,30 @@ import br.ufpb.dcx.poo.biblioteca.contrato.EmprestimoService;
 import br.ufpb.dcx.poo.biblioteca.contrato.RelatorioService;
 import br.ufpb.dcx.poo.biblioteca.contrato.UsuarioService;
 import br.ufpb.dcx.poo.biblioteca.contrato.excecoes.PersistenciaException;
+import br.ufpb.dcx.poo.biblioteca.persistencia.DadosPersistencia;
+import br.ufpb.dcx.poo.biblioteca.persistencia.GerenciadorPersistencia;
 
 /**
- * Reúne os quatro serviços em um único ponto de acesso.
- *
- * <p>Guarde esta classe na memória: na Aula 13 você vai descobrir que ela tem nome
- * e que a decisão de existir ou não tem consequências.</p>
+ * Ponto central de acesso aos serviços da biblioteca (Padrão Facade).
+ * Reúne os serviços de acervo, usuários, empréstimos e relatórios.
  */
 public class BibliotecaInicial implements Biblioteca {
 
+    private final AcervoEmMemoria acervo;
+    private final UsuariosEmMemoria usuarios;
+    private final EmprestimosEmMemoria emprestimos;
+    private final RelatoriosNaoImplementados relatorios;
+    private final GerenciadorPersistencia gerenciadorPersistencia;
 
-    private final AcervoEmMemoria acervo = new AcervoEmMemoria();
-
-    private final UsuariosEmMemoria usuarios = new UsuariosEmMemoria();
-
-    private final EmprestimosNaoImplementados emprestimos =
-            new EmprestimosNaoImplementados(acervo, usuarios);
-
-    private final RelatoriosNaoImplementados relatorios =
-            new RelatoriosNaoImplementados();
+    public BibliotecaInicial() {
+        this.acervo = new AcervoEmMemoria();
+        this.usuarios = new UsuariosEmMemoria();
+        this.emprestimos = new EmprestimosEmMemoria(this.acervo, this.usuarios);
+        this.acervo.setEmprestimos(this.emprestimos);
+        this.usuarios.setEmprestimos(this.emprestimos);
+        this.relatorios = new RelatoriosNaoImplementados();
+        this.gerenciadorPersistencia = new GerenciadorPersistencia();
+    }
 
     @Override
     public AcervoService acervo() { return acervo; }
@@ -40,11 +45,29 @@ public class BibliotecaInicial implements Biblioteca {
 
     @Override
     public void salvar() throws PersistenciaException {
-        throw new UnsupportedOperationException("Entrega 2: implementar salvar");
+        DadosPersistencia dados = new DadosPersistencia(
+                acervo.exportarItens(),
+                acervo.exportarExemplares(),
+                usuarios.exportarUsuarios(),
+                emprestimos.exportarEmprestimos(),
+                emprestimos.exportarReservas(),
+                emprestimos.getContadorEmprestimos(),
+                emprestimos.getContadorReservas()
+        );
+        gerenciadorPersistencia.salvar(dados);
     }
 
     @Override
     public void carregar() throws PersistenciaException {
-        throw new UnsupportedOperationException("Entrega 2: implementar carregar");
+        DadosPersistencia dados = gerenciadorPersistencia.carregar();
+        // Aplicação atômica: só altera a memória se o carregamento e validação forem bem-sucedidos
+        acervo.importar(dados.itens(), dados.exemplares());
+        usuarios.importar(dados.usuarios());
+        emprestimos.importar(
+                dados.emprestimos(),
+                dados.reservas(),
+                dados.proximoIdEmprestimo(),
+                dados.proximoIdReserva()
+        );
     }
 }

@@ -1,5 +1,6 @@
 package br.ufpb.dcx.poo.biblioteca.inicial;
 
+import java.io.Serializable;
 import java.time.Year;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -12,15 +13,17 @@ import br.ufpb.dcx.poo.biblioteca.contrato.excecoes.DadosInvalidosException;
  * Entidade de domínio representando um item do acervo (livro, mídia, etc.).
  * Protege suas invariantes no construtor e encapsula sua lista de exemplares.
  */
-public class Item {
+public class Item implements Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     public static final int ANO_MINIMO_PUBLICACAO = 1450; // Advento da imprensa moderna
 
     private final String codigo;
-    private String titulo;
-    private String autoria;
-    private String categoria;
-    private int ano;
+    private final String titulo;
+    private final String autoria;
+    private final String categoria;
+    private final int ano;
     private final List<Exemplar> exemplares = new ArrayList<>();
 
     public Item(String codigo, String titulo, String autoria, String categoria, int ano) {
@@ -56,45 +59,16 @@ public class Item {
         return titulo;
     }
 
-    public void setTitulo(String titulo) {
-        if (titulo == null || titulo.isBlank()) {
-            throw new DadosInvalidosException("O título não pode ser vazio.");
-        }
-        this.titulo = titulo.trim();
-    }
-
     public String getAutoria() {
         return autoria;
-    }
-
-    public void setAutoria(String autoria) {
-        if (autoria == null || autoria.isBlank()) {
-            throw new DadosInvalidosException("A autoria não pode ser vazia.");
-        }
-        this.autoria = autoria.trim();
     }
 
     public String getCategoria() {
         return categoria;
     }
 
-    public void setCategoria(String categoria) {
-        if (categoria == null || categoria.isBlank()) {
-            throw new DadosInvalidosException("A categoria não pode ser vazia.");
-        }
-        this.categoria = categoria.trim();
-    }
-
     public int getAno() {
         return ano;
-    }
-
-    public void setAno(int ano) {
-        int anoMaximo = Year.now().getValue() + 1;
-        if (ano < ANO_MINIMO_PUBLICACAO || ano > anoMaximo) {
-            throw new DadosInvalidosException("O ano de publicação deve estar entre " + ANO_MINIMO_PUBLICACAO + " e " + anoMaximo + ".");
-        }
-        this.ano = ano;
     }
 
     public void adicionarExemplar(Exemplar exemplar) {

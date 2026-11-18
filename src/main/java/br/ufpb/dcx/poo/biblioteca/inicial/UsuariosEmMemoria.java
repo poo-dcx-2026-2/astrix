@@ -13,10 +13,16 @@ import br.ufpb.dcx.poo.biblioteca.contrato.excecoes.DadosInvalidosException;
 import br.ufpb.dcx.poo.biblioteca.contrato.excecoes.OperacaoNaoPermitidaException;
 import br.ufpb.dcx.poo.biblioteca.contrato.excecoes.RecursoDuplicadoException;
 import br.ufpb.dcx.poo.biblioteca.contrato.excecoes.RecursoNaoEncontradoException;
+import br.ufpb.dcx.poo.biblioteca.persistencia.DadosPersistencia;
 
 public class UsuariosEmMemoria implements UsuarioService {
 
     private final Map<String, Usuario> usuariosPorMatricula = new LinkedHashMap<>();
+    private EmprestimosEmMemoria emprestimos;
+
+    public void setEmprestimos(EmprestimosEmMemoria emprestimos) {
+        this.emprestimos = emprestimos;
+    }
 
     @Override
     public void cadastrarUsuario(String matricula, String nome)
@@ -41,7 +47,7 @@ public class UsuariosEmMemoria implements UsuarioService {
     @Override
     public UsuarioView buscarUsuario(String matricula) throws RecursoNaoEncontradoException {
         if (matricula == null || matricula.isBlank()) {
-            throw new RecursoNaoEncontradoException("Matrícula não pode ser nula ou vazia.");
+            throw new DadosInvalidosException("Matrícula não pode ser nula ou vazia.");
         }
 
         Usuario usuario = usuariosPorMatricula.get(matricula.trim());
@@ -62,13 +68,12 @@ public class UsuariosEmMemoria implements UsuarioService {
         return Collections.unmodifiableList(resultado);
     }
 
-
     @Override
     public void desativarUsuario(String matricula)
             throws RecursoNaoEncontradoException, OperacaoNaoPermitidaException {
 
         if (matricula == null || matricula.isBlank()) {
-            throw new RecursoNaoEncontradoException(
+            throw new DadosInvalidosException(
                     "Matrícula não pode ser nula ou vazia.");
         }
 
@@ -84,17 +89,20 @@ public class UsuariosEmMemoria implements UsuarioService {
                     "Não é possível desativar um usuário com empréstimos ativos.");
         }
 
+        // Cancelar reservas ativas do usuário ao ser desativado (decisão documentada da equipe)
+        if (emprestimos != null) {
+            emprestimos.cancelarReservasDoUsuario(matricula.trim());
+        }
+
         usuario.setAtivo(false);
     }
-
-
 
     @Override
     public void reativarUsuario(String matricula)
             throws RecursoNaoEncontradoException {
 
         if (matricula == null || matricula.isBlank()) {
-            throw new RecursoNaoEncontradoException(
+            throw new DadosInvalidosException(
                     "Matrícula não pode ser nula ou vazia.");
         }
 
@@ -108,7 +116,6 @@ public class UsuariosEmMemoria implements UsuarioService {
         usuario.setAtivo(true);
     }
 
-
     private UsuarioView paraView(Usuario usuario) {
         return new UsuarioView(
                 usuario.getMatricula(),
@@ -121,7 +128,7 @@ public class UsuariosEmMemoria implements UsuarioService {
             throws RecursoNaoEncontradoException {
 
         if (matricula == null || matricula.isBlank()) {
-            throw new RecursoNaoEncontradoException(
+            throw new DadosInvalidosException(
                     "Matrícula não pode ser nula ou vazia.");
         }
 
@@ -134,4 +141,24 @@ public class UsuariosEmMemoria implements UsuarioService {
 
         return usuario;
     }
+
+    List<DadosPersistencia.UsuarioDTO> exportarUsuarios() {
+        List<DadosPersistencia.UsuarioDTO> lista = new ArrayList<>();
+        for (Usuario u : usuariosPorMatricula.values()) {
+            lista.add(new DadosPersistencia.UsuarioDTO(
+                    u.getMatricula(), u.getNome(), u.isAtivo(), u.getEmprestimosAtivos()
+            ));
+        }
+        return lista;
     }
+
+    void importar(List<DadosPersistencia.UsuarioDTO> dtos) {
+        usuariosPorMatricula.clear();
+        for (DadosPersistencia.UsuarioDTO dto : dtos) {
+            Usuario u = new Usuario(dto.matricula(), dto.nome());
+            u.setAtivo(dto.ativo());
+            u.setEmprestimosAtivos(dto.emprestimosAtivos());
+            usuariosPorMatricula.put(u.getMatricula(), u);
+        }
+    }
+}

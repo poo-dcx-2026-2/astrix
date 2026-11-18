@@ -2,6 +2,7 @@ package br.ufpb.dcx.poo.biblioteca;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 
@@ -249,5 +250,128 @@ class AcervoTest {
 
         assertEquals(1, biblioteca.acervo().buscarItem("L1").totalDeExemplares());
         assertEquals(0, biblioteca.acervo().buscarItem("L2").totalDeExemplares());
+    }
+
+    // ==========================================
+    // TESTES DA ENTREGA 2
+    // ==========================================
+
+    @Test
+    @DisplayName("buscarItem com código nulo ou em branco lança DadosInvalidosException (Devolutiva E1)")
+    void buscarItemCodigoEmBranco() {
+        assertThrows(DadosInvalidosException.class,
+                () -> biblioteca.acervo().buscarItem(null));
+        assertThrows(DadosInvalidosException.class,
+                () -> biblioteca.acervo().buscarItem("   "));
+    }
+
+    @Test
+    @DisplayName("listarExemplares com código nulo ou em branco lança DadosInvalidosException (Devolutiva E1)")
+    void listarExemplaresCodigoEmBranco() {
+        assertThrows(DadosInvalidosException.class,
+                () -> biblioteca.acervo().listarExemplares(null));
+        assertThrows(DadosInvalidosException.class,
+                () -> biblioteca.acervo().listarExemplares("   "));
+    }
+
+    @Test
+    @DisplayName("listarExemplares devolve exemplares ordenados por tombo (Devolutiva E1)")
+    void listarExemplaresOrdenadoPorTombo() throws BibliotecaException {
+        biblioteca.acervo().cadastrarItem("L1", "Java Efetivo", "Bloch", "livro", 2019);
+        biblioteca.acervo().adicionarExemplar("L1", "T-003");
+        biblioteca.acervo().adicionarExemplar("L1", "T-001");
+        biblioteca.acervo().adicionarExemplar("L1", "T-002");
+
+        List<ExemplarView> lista = biblioteca.acervo().listarExemplares("L1");
+        assertEquals(3, lista.size());
+        assertEquals("T-001", lista.get(0).tombo());
+        assertEquals("T-002", lista.get(1).tombo());
+        assertEquals("T-003", lista.get(2).tombo());
+    }
+
+    @Test
+    @DisplayName("buscarPorCategoria: ignora maiúsculas e ordena por título")
+    void buscarPorCategoriaSucesso() throws BibliotecaException {
+        biblioteca.acervo().cadastrarItem("L1", "Zend Guard", "Zend", "SOFTWARE", 2020);
+        biblioteca.acervo().cadastrarItem("L2", "Apache Maven", "ASF", "software", 2019);
+        biblioteca.acervo().cadastrarItem("L3", "Clean Code", "Martin", "LIVRO", 2008);
+
+        List<ItemView> resultado = biblioteca.acervo().buscarPorCategoria("software");
+        assertEquals(2, resultado.size());
+        assertEquals("Apache Maven", resultado.get(0).titulo());
+        assertEquals("Zend Guard", resultado.get(1).titulo());
+    }
+
+    @Test
+    @DisplayName("buscarPorCategoria sem resultado devolve lista vazia")
+    void buscarPorCategoriaVazia() {
+        List<ItemView> resultado = biblioteca.acervo().buscarPorCategoria("inexistente");
+        assertTrue(resultado.isEmpty());
+    }
+
+    @Test
+    @DisplayName("buscarPorCategoria com categoria nula ou em branco lança DadosInvalidosException")
+    void buscarPorCategoriaInvalida() {
+        assertThrows(DadosInvalidosException.class,
+                () -> biblioteca.acervo().buscarPorCategoria(null));
+        assertThrows(DadosInvalidosException.class,
+                () -> biblioteca.acervo().buscarPorCategoria("   "));
+    }
+
+    @Test
+    @DisplayName("baixarExemplar com tombo inválido lança DadosInvalidosException")
+    void baixarExemplarTomboInvalido() {
+        assertThrows(DadosInvalidosException.class,
+                () -> biblioteca.acervo().baixarExemplar(null));
+        assertThrows(DadosInvalidosException.class,
+                () -> biblioteca.acervo().baixarExemplar("   "));
+    }
+
+    @Test
+    @DisplayName("baixarExemplar com tombo inexistente lança RecursoNaoEncontradoException")
+    void baixarExemplarInexistente() {
+        assertThrows(RecursoNaoEncontradoException.class,
+                () -> biblioteca.acervo().baixarExemplar("T-NAO-EXISTE"));
+    }
+
+    @Test
+    @DisplayName("baixarExemplar com sucesso: status passa a INDISPONIVEL e não conta como disponível")
+    void baixarExemplarSucesso() throws BibliotecaException {
+        biblioteca.acervo().cadastrarItem("L1", "Java Efetivo", "Bloch", "livro", 2019);
+        biblioteca.acervo().adicionarExemplar("L1", "T-001");
+
+        biblioteca.acervo().baixarExemplar("T-001");
+
+        ItemView item = biblioteca.acervo().buscarItem("L1");
+        assertEquals(1, item.totalDeExemplares());
+        assertEquals(0, item.exemplaresDisponiveis());
+
+        List<ExemplarView> exemplares = biblioteca.acervo().listarExemplares("L1");
+        assertEquals(1, exemplares.size());
+        assertEquals(StatusExemplar.INDISPONIVEL, exemplares.get(0).status());
+    }
+
+    @Test
+    @DisplayName("baixar exemplar já INDISPONIVEL lança OperacaoNaoPermitidaException")
+    void baixarExemplarJaIndisponivel() throws BibliotecaException {
+        biblioteca.acervo().cadastrarItem("L1", "Java Efetivo", "Bloch", "livro", 2019);
+        biblioteca.acervo().adicionarExemplar("L1", "T-001");
+
+        biblioteca.acervo().baixarExemplar("T-001");
+
+        assertThrows(br.ufpb.dcx.poo.biblioteca.contrato.excecoes.OperacaoNaoPermitidaException.class,
+                () -> biblioteca.acervo().baixarExemplar("T-001"));
+    }
+
+    @Test
+    @DisplayName("baixar exemplar EMPRESTADO lança OperacaoNaoPermitidaException")
+    void baixarExemplarEmprestado() throws BibliotecaException {
+        biblioteca.acervo().cadastrarItem("L1", "Java Efetivo", "Bloch", "livro", 2019);
+        biblioteca.acervo().adicionarExemplar("L1", "T-001");
+        biblioteca.usuarios().cadastrarUsuario("U1", "Alice");
+        biblioteca.emprestimos().emprestar("T-001", "U1", java.time.LocalDate.of(2026, 11, 10));
+
+        assertThrows(br.ufpb.dcx.poo.biblioteca.contrato.excecoes.OperacaoNaoPermitidaException.class,
+                () -> biblioteca.acervo().baixarExemplar("T-001"));
     }
 }
