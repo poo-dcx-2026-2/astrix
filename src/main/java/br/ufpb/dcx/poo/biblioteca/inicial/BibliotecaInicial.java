@@ -60,7 +60,29 @@ public class BibliotecaInicial implements Biblioteca {
     @Override
     public void carregar() throws PersistenciaException {
         DadosPersistencia dados = gerenciadorPersistencia.carregar();
-        // Aplicação atômica: só altera a memória se o carregamento e validação forem bem-sucedidos
+
+        // 1ª fase: recria todo o estado em serviços descartáveis. Se algum dado do
+        // arquivo violar uma regra do domínio (por exemplo, um Item com ano inválido),
+        // o construtor da entidade falha aqui, sem tocar no estado atual da biblioteca.
+        AcervoEmMemoria acervoTeste = new AcervoEmMemoria();
+        UsuariosEmMemoria usuariosTeste = new UsuariosEmMemoria();
+        EmprestimosEmMemoria emprestimosTeste = new EmprestimosEmMemoria(acervoTeste, usuariosTeste);
+        try {
+            importarEm(dados, acervoTeste, usuariosTeste, emprestimosTeste);
+        } catch (RuntimeException e) {
+            PersistenciaException pe = new PersistenciaException(
+                    "Arquivo com dados inválidos: " + e.getMessage());
+            pe.initCause(e);
+            throw pe;
+        }
+
+        // 2ª fase: os mesmos dados já foram aceitos na 1ª fase, então importá-los
+        // no estado real não falha. A memória só muda depois que tudo foi validado.
+        importarEm(dados, acervo, usuarios, emprestimos);
+    }
+
+    private static void importarEm(DadosPersistencia dados, AcervoEmMemoria acervo,
+                                   UsuariosEmMemoria usuarios, EmprestimosEmMemoria emprestimos) {
         acervo.importar(dados.itens(), dados.exemplares());
         usuarios.importar(dados.usuarios());
         emprestimos.importar(
