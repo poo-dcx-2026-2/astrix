@@ -27,7 +27,11 @@ public class BibliotecaInicial implements Biblioteca {
         this.emprestimos = new EmprestimosEmMemoria(this.acervo, this.usuarios);
         this.acervo.setEmprestimos(this.emprestimos);
         this.usuarios.setEmprestimos(this.emprestimos);
-        this.relatorios = new RelatoriosNaoImplementados();
+        this.relatorios = new RelatoriosNaoImplementados(
+                this.acervo,
+                this.usuarios,
+                this.emprestimos
+        );
         this.gerenciadorPersistencia = new GerenciadorPersistencia();
     }
 

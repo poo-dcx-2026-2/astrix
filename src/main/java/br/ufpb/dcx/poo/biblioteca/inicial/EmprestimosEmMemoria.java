@@ -444,4 +444,7 @@ public class EmprestimosEmMemoria implements EmprestimoService {
             fila.sort(Comparator.comparingInt(Reserva::getPosicaoNaFila));
         }
     }
+    List<Emprestimo> listarTodosEmprestimos() {
+        return List.copyOf(emprestimosPorId.values());
+    }
 }
