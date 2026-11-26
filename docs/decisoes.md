@@ -57,3 +57,67 @@ Este documento registra as decisões estruturais de modelagem orientada a objeto
 * **Decisão:** Criou-se a classe `GerenciadorPersistencia` no pacote `persistencia`, responsável por ler e escrever o snapshot de dados `DadosPersistencia`. O salvamento e carregamento utilizam exclusivamente `try-with-resources` e convertem qualquer `IOException` em `PersistenciaException` preservando a causa com `initCause()`. O carregamento é **atômico**: os dados do arquivo são primeiro lidos e validados estruturalmente; apenas se a integridade for 100% comprovada o estado em memória é substituído. Se o arquivo estiver corrompido, `carregar()` lança `PersistenciaException` sem alterar o estado em memória. Se o arquivo ou diretório estiver ausente, o sistema inicializa com estado vazio sem falhar.
 * **Alternativa rejeitada:** Fazer as classes de domínio (`Item`, `Exemplar`, `Usuario`) gravarem a si mesmas diretamente em arquivo ou realizar salvamento parcial que deixasse resíduo de dados caso ocorresse falha no meio do processo.
 * **Consequência:** Separação total de responsabilidades (domínio puro sem E/S), robustez e segurança transacional contra falhas e corrupção de arquivos em conformidade rigorosa com a rubrica.
+
+---
+
+## Registro de Decisões de Design e Arquitetura — Entrega 3
+
+### Decisão 8: Utilização de Streams na Implementação dos Relatórios
+
+* **Contexto:** O sistema precisa produzir relatórios a partir dos dados de empréstimos e exemplares cadastrados, sem modificar o estado da biblioteca.
+* **Decisão:** Utilizar a API de Streams do Java nos métodos `emprestimosPorCategoria()` e `taxaDeOcupacaoDoAcervo()`, empregando operações como `map`, `flatMap`, `filter`, `count`, `groupingBy` e `counting`.
+* **Alternativa rejeitada:** Utilizar estruturas de repetição tradicionais com contadores e mapas preenchidos manualmente.
+* **Consequência:** Código mais declarativo, com responsabilidades bem definidas e consultas sem efeitos colaterais sobre os dados da biblioteca.
+
+---
+
+### Decisão 9: Injeção de Dependências e Encapsulamento dos Dados
+
+* **Contexto:** Os relatórios precisam acessar informações dos serviços de acervo, empréstimos e usuários já existentes.
+* **Decisão:** Utilizar injeção de dependências pelo construtor de `RelatoriosNaoImplementados`, recebendo as instâncias existentes de `AcervoEmMemoria`, `UsuariosEmMemoria` e `EmprestimosEmMemoria`. O método interno `listarTodosEmprestimos()` utiliza `List.copyOf()` para retornar uma lista estruturalmente não modificável.
+* **Alternativa rejeitada:** Criar novas instâncias dos serviços, utilizar atributos estáticos compartilhados ou expor diretamente os mapas internos.
+* **Consequência:** Os relatórios consultam o mesmo estado gerenciado pela biblioteca, preservando o encapsulamento das coleções e evitando duplicação de dados. As entidades retornadas são utilizadas exclusivamente para leitura.
+
+---
+
+### Decisão 10: Normalização das Categorias e Preservação do Histórico
+
+* **Contexto:** Uma categoria pode ser cadastrada com diferentes combinações de letras maiúsculas e minúsculas. Além disso, empréstimos devolvidos devem permanecer no histórico.
+* **Decisão:** Normalizar as categorias com `toLowerCase(Locale.ROOT)` e contabilizar todos os empréstimos registrados, incluindo ativos e devolvidos, mesmo quando o exemplar tenha sido posteriormente baixado. Caso um empréstimo esteja associado a um exemplar inexistente, lançar `IllegalStateException`, preservando a causa original.
+* **Alternativa rejeitada:** Agrupar categorias considerando diferenças entre maiúsculas e minúsculas, contabilizar somente empréstimos ativos ou ignorar silenciosamente inconsistências nos dados.
+* **Consequência:** Relatórios consistentes, independentes da configuração regional do ambiente e capazes de preservar o histórico de utilização do acervo.
+
+---
+
+### Decisão 11: Critérios para o Cálculo da Taxa de Ocupação
+
+* **Contexto:** A taxa de ocupação deve representar a proporção de exemplares emprestados em relação aos exemplares válidos do acervo.
+* **Decisão:** Excluir exemplares com status `INDISPONIVEL` do denominador e contabilizar somente exemplares com status `EMPRESTADO` no numerador. Exemplares reservados permanecem no denominador. Quando não existirem exemplares válidos, retornar `0.0`.
+* **Alternativa rejeitada:** Considerar todos os exemplares cadastrados, incluindo os baixados, ou realizar a divisão sem verificar se o denominador é zero.
+* **Consequência:** Cálculo coerente com o estado do acervo, evitando divisão por zero e resultados distorcidos.
+
+---
+
+### Estratégia de Testes e Validação
+
+A implementação dos dois relatórios seguiu a abordagem de desenvolvimento orientado a testes (TDD).
+
+Inicialmente, foram escritos oito testes utilizando a fábrica da biblioteca, com datas fixas e preparação independente dos cenários por meio de `@BeforeEach`.
+
+Na fase RED, os oito novos testes apresentaram erros esperados devido à ausência de implementação, enquanto os 89 testes anteriores continuaram passando.
+
+Na fase GREEN, após a implementação dos relatórios, os 97 testes foram aprovados.
+
+Posteriormente, foram acrescentados dois casos de fronteira:
+
+* Acervo com todos os exemplares baixados, verificando o retorno de uma taxa de ocupação igual a zero.
+* Empréstimo devolvido cujo exemplar foi posteriormente baixado, verificando a preservação do histórico por categoria.
+
+A execução final apresentou 99 testes aprovados, sem falhas, erros ou testes ignorados.
+
+**Commits de referência:**
+
+* `82042f8` — Criação dos testes iniciais.
+* `3844b0e` — Padronização do nome do arquivo de testes.
+* `e5e9160` — Implementação dos relatórios com Streams.
+* `ce08934` — Inclusão dos casos de fronteira.
