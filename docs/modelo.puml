@@ -45,7 +45,13 @@ package "br.ufpb.dcx.poo.biblioteca.contrato" {
         + listarReservas(codigoDoItem: String) : List<ReservaView>
         + cancelarReserva(idDaReserva: String) : void
     }
-
+        interface RelatorioService {
+            + itensMaisEmprestados(n: int) : List<ItemView>
+            + emprestimosPorCategoria() : Map<String, Long>
+            + usuariosComAtraso(data: LocalDate) : List<UsuarioView>
+            + taxaDeOcupacaoDoAcervo() : double
+            + importarItensEmLote(arquivo: Path) : int
+        }
     enum StatusEmprestimo {
         ATIVO
         DEVOLVIDO
@@ -212,14 +218,23 @@ package "br.ufpb.dcx.poo.biblioteca.inicial" {
         - emprestimoAtivoDoExemplar : Map<String, Emprestimo>
         - reservasPorItem : Map<String, List<Reserva>>
         - reservasPorId : Map<String, Reserva>
+        ~ listarTodosEmprestimos() : List<Emprestimo>
     }
+        class RelatoriosNaoImplementados {
+            - acervo : AcervoEmMemoria
+            - usuarios : UsuariosEmMemoria
+            - emprestimos : EmprestimosEmMemoria
+            + emprestimosPorCategoria() : Map<String, Long>
+            + taxaDeOcupacaoDoAcervo() : double
+        }
 
-    class BibliotecaInicial {
-        - acervo : AcervoEmMemoria
-        - usuarios : UsuariosEmMemoria
-        - emprestimos : EmprestimosEmMemoria
-        - persistencia : GerenciadorPersistencia
-    }
+   class BibliotecaInicial {
+       - acervo : AcervoEmMemoria
+       - usuarios : UsuariosEmMemoria
+       - emprestimos : EmprestimosEmMemoria
+       - relatorios : RelatorioService
+       - gerenciadorPersistencia : GerenciadorPersistencia
+   }
 }
 
 BibliotecaInicial ..|> Biblioteca
@@ -249,5 +264,11 @@ Exemplar --> StatusExemplar : status
 
 Emprestimo --> StatusEmprestimo : status
 GerenciadorPersistencia ..> DadosPersistencia : grava/carrega
+
+RelatoriosNaoImplementados ..|> RelatorioService
+BibliotecaInicial *--> RelatoriosNaoImplementados : relatorios
+RelatoriosNaoImplementados --> AcervoEmMemoria : consulta
+RelatoriosNaoImplementados --> UsuariosEmMemoria : referencia
+RelatoriosNaoImplementados --> EmprestimosEmMemoria : consulta
 
 @enduml
