@@ -191,4 +191,38 @@ class PersistenciaTest {
 
         assertThrows(PersistenciaException.class, () -> b.carregar());
     }
+
+    @Test
+    @DisplayName("arquivo legível com item inválido (ano 1200) lança PersistenciaException e não altera memória")
+    void arquivoComItemInvalidoLancaPersistenciaExceptionENaoAlteraMemoria() throws Exception {
+        Biblioteca b = Fabrica.novaBiblioteca();
+        b.acervo().cadastrarItem("L1", "Java Efetivo", "Bloch", "livro", 2019);
+        b.usuarios().cadastrarUsuario("U1", "Ana");
+
+        // Arquivo bem formado e sem referências quebradas, mas com um item que viola
+        // a regra de ano mínimo (1450): passa pela validação de integridade do
+        // GerenciadorPersistencia e só falha ao recriar o objeto Item.
+        Path arq = tempDir.resolve("biblioteca.dat");
+        var dadosComItemInvalido = new br.ufpb.dcx.poo.biblioteca.persistencia.DadosPersistencia(
+                List.of(new br.ufpb.dcx.poo.biblioteca.persistencia.DadosPersistencia.ItemDTO(
+                        "L9", "Manuscrito", "Anônimo", "livro", 1200)),
+                List.of(),
+                List.of(new br.ufpb.dcx.poo.biblioteca.persistencia.DadosPersistencia.UsuarioDTO(
+                        "U9", "Bia", true, 0)),
+                List.of(), List.of(), 0L, 0L
+        );
+
+        try (OutputStream os = Files.newOutputStream(arq);
+             var oos = new java.io.ObjectOutputStream(os)) {
+            oos.writeObject(dadosComItemInvalido);
+        }
+
+        assertThrows(PersistenciaException.class, () -> b.carregar());
+
+        // Estado em memória deve continuar exatamente como antes da tentativa
+        assertEquals(1, b.acervo().listarItens().size());
+        assertEquals("Java Efetivo", b.acervo().buscarItem("L1").titulo());
+        assertEquals(1, b.usuarios().listarUsuarios().size());
+        assertEquals("Ana", b.usuarios().buscarUsuario("U1").nome());
+    }
 }
